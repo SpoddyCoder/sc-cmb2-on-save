@@ -1,7 +1,7 @@
 <?php
 /**
  * @package   SC-CMB2-On-Save
- * @version   1.1.0
+ * @version   1.1.1
  * @link      https://github.com/SpoddyCoder/sc-cmb2-on-save
  * @author    Paul Fernihough (spoddycoder.com)
  * @copyright Copyright (c) 2017, Paul Fernihough
@@ -150,7 +150,7 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
         }
 
         /**
-         * this filter increases the hidden field & runs the on save callback
+         * this filter increases the hidden field
          */
         public function on_hidden_field_save( $value, $field_args, $field  ) {
             foreach( self::$on_saves as $on_save ) {
@@ -158,7 +158,7 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
                 $on_save_callback = $on_save['callback'];
                 if( $on_save_cmb2_metabox->object_id ===  $field->object_id ) {
                     $value = (int)$value;   // sanitize the counter value, ensure int
-                    $value ++;  // this ensures cmb2 gives a 'settings updated' notice rather a 'nothing updated'
+                    $value ++;  // this ensures cmb2 gives a 'settings updated' notice rather a 'nothing to update'
                     //call_user_func( $on_save_callback );    // could be used to run just before save
                     return $value;  // return updated count to cmb2 save
                 }
@@ -173,6 +173,9 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
             echo '<style>' . $class . ' { display: none; }</style>';
         }
 
+        /**
+         * this action hook is used to run the on save callback
+         */
         public static function on_metabox_save( $option_name, $old_value, $value ) {
             foreach( self::$on_saves as $on_save ) {
                 $on_save_cmb2_metabox = $on_save['cmb2_metabox'];
