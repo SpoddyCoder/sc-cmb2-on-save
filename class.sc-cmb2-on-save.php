@@ -1,7 +1,7 @@
 <?php
 /**
  * @package   SC-CMB2-On-Save
- * @version   1.1.1
+ * @version   1.1.2
  * @link      https://github.com/SpoddyCoder/sc-cmb2-on-save
  * @author    Paul Fernihough (spoddycoder.com)
  * @copyright Copyright (c) 2017, Paul Fernihough
@@ -74,7 +74,7 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
         protected function __construct() {}
         protected function __clone() {}
         public function __wakeup() {
-            throw new Exception("Cannot unserialize singleton");
+            throw new Exception( "Cannot unserialize singleton" );
         }
 
 
@@ -92,7 +92,7 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
             $class = get_called_class(); // late-static-bound class name (PHP5.3+)
             if ( !isset( self::$instances[$class] ) ) {
                 self::$instances[$class] = new static;
-                add_action('updated_option', 'SC_CMB2_On_Save::on_metabox_save', self::WP_UPDATED_HOOK_PRIORITY, 3);
+                add_action( 'updated_option', 'SC_CMB2_On_Save::on_metabox_save', self::WP_UPDATED_HOOK_PRIORITY, 3 );
                 add_action( 'cmb2_admin_init', 'SC_CMB2_On_Save::cmb2_admin_init_late', self::CMB2_LATE_HOOK_PRIORITY );
             }
             return self::$instances[$class];
@@ -108,15 +108,15 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
          */
         public static function add_callback( $cmb2_metabox, $callback ) {
             if( ! self::init() ) {
-                throw new Exception("Cannot add_callback(), SC_CMB2_On_Save not yet initialised");
+                throw new Exception( "Cannot add_callback(), SC_CMB2_On_Save not yet initialised" );
             }
             $registered_on_saves = self::$on_saves;
             $registered_on_saves[] = array(
                 'cmb2_metabox' => $cmb2_metabox,
                 'callback' => $callback,
             );
-            $class = new ReflectionClass("SC_CMB2_On_Save");
-            $class->setStaticPropertyValue('on_saves', $registered_on_saves);
+            $class = new ReflectionClass( "SC_CMB2_On_Save" );
+            $class->setStaticPropertyValue( 'on_saves', $registered_on_saves );
         }
 
 
@@ -159,7 +159,7 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
                 if( $on_save_cmb2_metabox->object_id ===  $field->object_id ) {
                     $value = (int)$value;   // sanitize the counter value, ensure int
                     $value ++;  // this ensures cmb2 gives a 'settings updated' notice rather a 'nothing to update'
-                    //call_user_func( $on_save_callback );    // could be used to run just before save
+                    //call_user_func( $on_save_callback );    // could be used to run a callback just before save
                     return $value;  // return updated count to cmb2 save
                 }
             }
@@ -177,6 +177,9 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
          * this action hook is used to run the on save callback
          */
         public static function on_metabox_save( $option_name, $old_value, $value ) {
+            if( ! self::$on_saves ) {
+                return; // prevent warnings if not intiialised
+            }
             foreach( self::$on_saves as $on_save ) {
                 $on_save_cmb2_metabox = $on_save['cmb2_metabox'];
                 $on_save_callback = $on_save['callback'];
