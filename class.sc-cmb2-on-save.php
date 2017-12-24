@@ -1,7 +1,7 @@
 <?php
 /**
  * @package   SC-CMB2-On-Save
- * @version   1.1.2
+ * @version   1.1.3
  * @link      https://github.com/SpoddyCoder/sc-cmb2-on-save
  * @author    Paul Fernihough (spoddycoder.com)
  * @copyright Copyright (c) 2017, Paul Fernihough
@@ -129,7 +129,7 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
         /**
          * bound to cmb2_admin_init, run late
          */
-        public function cmb2_admin_init_late() {
+        public static function cmb2_admin_init_late() {
             foreach( self::$on_saves as $on_save ) {
                 $cmb2_metabox = $on_save['cmb2_metabox'];
                 // add hidden field used to hook into on save
@@ -152,7 +152,7 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
         /**
          * this filter increases the hidden field
          */
-        public function on_hidden_field_save( $value, $field_args, $field  ) {
+        public static function on_hidden_field_save( $value, $field_args, $field  ) {
             foreach( self::$on_saves as $on_save ) {
                 $on_save_cmb2_metabox = $on_save['cmb2_metabox'];
                 $on_save_callback = $on_save['callback'];
