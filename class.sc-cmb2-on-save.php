@@ -1,7 +1,7 @@
 <?php
 /**
  * @package   SC-CMB2-On-Save
- * @version   1.1.3
+ * @version   1.1.4
  * @link      https://github.com/SpoddyCoder/sc-cmb2-on-save
  * @author    Paul Fernihough (spoddycoder.com)
  * @copyright Copyright (c) 2017, Paul Fernihough
@@ -65,7 +65,7 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
          * NB: this is public to allow ReflectionClass updates,
          * in reality no one should need to access this externally
          */
-        public static $on_saves;
+        public static $on_saves = array();
 
         /**
          * PHP5.3 compatible singleton pattern
