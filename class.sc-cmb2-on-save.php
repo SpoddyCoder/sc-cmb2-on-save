@@ -1,10 +1,10 @@
 <?php
 /**
  * @package   SC-CMB2-On-Save
- * @version   1.1.4
+ * @version   1.1.5
  * @link      https://github.com/SpoddyCoder/sc-cmb2-on-save
  * @author    Paul Fernihough (spoddycoder.com)
- * @copyright Copyright (c) 2017, Paul Fernihough
+ * @copyright Copyright (c) 2018, Paul Fernihough
  * @license   MIT
  *
  *
@@ -15,7 +15,7 @@
 /*
     MIT License
 
-    Copyright (c) 2017 Paul Fernihough
+    Copyright (c) 2018 Paul Fernihough
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -60,12 +60,12 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
         const WP_UPDATED_HOOK_PRIORITY = 10;
 
         /**
-         * array of on saves
-         *
-         * NB: this is public to allow ReflectionClass updates,
-         * in reality no one should need to access this externally
+         * internal state properties
+         * NB: these are public to allow ReflectionClass updates,
+         * in reality no one should need to access these externally
          */
         public static $on_saves = array();
+        public static $callbacks_processed = false;
 
         /**
          * PHP5.3 compatible singleton pattern
@@ -92,7 +92,10 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
             $class = get_called_class(); // late-static-bound class name (PHP5.3+)
             if ( !isset( self::$instances[$class] ) ) {
                 self::$instances[$class] = new static;
-                add_action( 'updated_option', 'SC_CMB2_On_Save::on_metabox_save', self::WP_UPDATED_HOOK_PRIORITY, 3 );
+                // updated_option is an easy hook to ensure our callbacks run on save
+                // this means we dont need to know the option keys in advance, which makes integrator usage easy :)
+                add_action( 'updated_option', 'SC_CMB2_On_Save::on_updated_option', self::WP_UPDATED_HOOK_PRIORITY, 3 );
+                // hook into cmb2 late, after integrator has done their stuff with the metabox
                 add_action( 'cmb2_admin_init', 'SC_CMB2_On_Save::cmb2_admin_init_late', self::CMB2_LATE_HOOK_PRIORITY );
             }
             return self::$instances[$class];
@@ -110,21 +113,21 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
             if( ! self::init() ) {
                 throw new Exception( "Cannot add_callback(), SC_CMB2_On_Save not yet initialised" );
             }
-            $registered_on_saves = self::$on_saves;
-            $registered_on_saves[] = array(
+            $on_saves = self::$on_saves;
+            $on_saves[] = array(
                 'cmb2_metabox' => $cmb2_metabox,
-                'callback' => $callback,
+                'callback' => $callback
             );
             $class = new ReflectionClass( "SC_CMB2_On_Save" );
-            $class->setStaticPropertyValue( 'on_saves', $registered_on_saves );
+            $class->setStaticPropertyValue( 'on_saves', $on_saves );
         }
 
 
-        ////////////////////////////////////////////////////////////
+        /////////////////////////////////////////////////////////////
         // "private" methods
         //
-        // NB: public because WP/CMB2 hook framework requires access
-        ////////////////////////////////////////////////////////////
+        // NB: public because WP/CMB2 hook frameworks requires access
+        /////////////////////////////////////////////////////////////
 
         /**
          * bound to cmb2_admin_init, run late
@@ -144,7 +147,7 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
                         'readonly' => 'readonly',
                     ),
                     'before_row' => 'SC_CMB2_On_Save::hide_count_field', // hide the field row with a little css include
-                    'sanitization_cb' => 'SC_CMB2_On_Save::on_hidden_field_save', // hook into save
+                    'sanitization_cb' => 'SC_CMB2_On_Save::on_hidden_field_save', // hook into pre-save
                 ) );
             }
         }
@@ -159,7 +162,7 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
                 if( $on_save_cmb2_metabox->object_id ===  $field->object_id ) {
                     $value = (int)$value;   // sanitize the counter value, ensure int
                     $value ++;  // this ensures cmb2 gives a 'settings updated' notice rather a 'nothing to update'
-                    //call_user_func( $on_save_callback );    // could be used to run a callback just before save
+                    //call_user_func( $on_save_callback );    // TODO: could be used to run a callback just before save
                     return $value;  // return updated count to cmb2 save
                 }
             }
@@ -175,19 +178,29 @@ if ( ! class_exists( 'SC_CMB2_On_Save' ) ) {
 
         /**
          * this action hook is used to run the on save callback
+         * it hooks into updated_option - which can fire multiple times if multiple options are updated on a metabox save
          */
-        public static function on_metabox_save( $option_name, $old_value, $value ) {
-            if( ! self::$on_saves ) {
-                return; // prevent warnings if not intiialised
+        public static function on_updated_option( $option_name, $old_value, $value ) {
+            if( ! self::$on_saves || empty( self::$on_saves ) ) {
+                return;
             }
-            foreach( self::$on_saves as $on_save ) {
-                $on_save_cmb2_metabox = $on_save['cmb2_metabox'];
-                $on_save_callback = $on_save['callback'];
-                if( $on_save_cmb2_metabox->object_id ===  $option_name ) {
-                    call_user_func( $on_save_callback );    // do what needs to be done after save
+            // process callbacks, once only
+            if( ! self::$callbacks_processed ) {
+                // NB: this state is set before running the callbacks, as they will run under a forked process
+                // - which means this function can be called multiple times before the loop finishes
+                $class = new ReflectionClass( "SC_CMB2_On_Save" );
+                $class->setStaticPropertyValue( 'callbacks_processed', true );
+                // run all callback functions
+                foreach( self::$on_saves as $on_save ) {
+                    $on_save_cmb2_metabox = $on_save['cmb2_metabox'];
+                    $on_save_callback = $on_save['callback'];
+                    if( $on_save_cmb2_metabox->object_id ===  $option_name ) {
+                        call_user_func( $on_save_callback );
+                    }
                 }
             }
         }
     }
 
 }
+
